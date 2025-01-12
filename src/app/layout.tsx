@@ -2,6 +2,8 @@ import { QueryProvider } from "@/providers/QueryProvider";
 import "./globals.css";
 import { NextUIProvider } from "@nextui-org/react";
 import { AuthProvider } from "@/providers/AuthProvider";
+import { Toaster } from "react-hot-toast";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 
 export const metadata = {
   title: "Next.js",
@@ -14,7 +16,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <QueryProvider>
           <AuthProvider>
-            <NextUIProvider>{children}</NextUIProvider>
+            <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}>
+              <NextUIProvider>{children}</NextUIProvider>
+              <Toaster />
+            </GoogleOAuthProvider>
           </AuthProvider>
         </QueryProvider>
       </body>

@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -27,9 +27,10 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem("accessToken");
-      window.location.href = "/login";
+    if (error instanceof AxiosError) {
+      if (error.response) {
+        return Promise.reject(error.response.data);
+      }
     }
     return Promise.reject(error);
   }

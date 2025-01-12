@@ -12,6 +12,10 @@ export interface LoginData {
   password: string;
 }
 
+export interface GoogleLoginData {
+  token: string;
+}
+
 export interface AuthResponse {
   access_token: string;
 }
@@ -24,6 +28,11 @@ export const authService = {
 
   async login(data: LoginData) {
     const response = await axiosInstance.post<AuthResponse>("/auth/login", data);
+    return response.data;
+  },
+
+  async googleLogin(data: GoogleLoginData) {
+    const response = await axiosInstance.post<AuthResponse>("/auth/google", data);
     return response.data;
   },
 

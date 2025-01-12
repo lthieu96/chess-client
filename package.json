@@ -9,18 +9,21 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@nextui-org/react": "^2.4.8",
+    "@hookform/resolvers": "^3.10.0",
+    "@nextui-org/react": "^2.6.11",
+    "@react-oauth/google": "^0.12.1",
     "@tanstack/react-query": "^5.64.0",
     "@tanstack/react-query-devtools": "^5.60.5",
     "axios": "^1.7.9",
     "chess.js": "^1.0.0-beta.8",
-    "framer-motion": "^11.11.17",
+    "framer-motion": "^11.17.0",
     "lucide-react": "^0.471.0",
     "next": "14.2.18",
     "react": "^18",
     "react-chessboard": "^4.7.2",
     "react-dom": "^18",
     "react-hook-form": "^7.54.2",
+    "react-hot-toast": "^2.5.1",
     "socket.io-client": "^4.8.1",
     "zod": "^3.24.1"
   },

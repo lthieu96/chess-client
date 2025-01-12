@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Button,
   Modal,
@@ -21,6 +21,10 @@ import {
   User,
 } from "@nextui-org/react";
 import Link from "next/link";
+import { useAuth } from "@/providers/AuthProvider";
+import AuthenticatedApp from "./_components/fullpage-loading";
+import { useRouter } from "next/navigation";
+import FullPageLoading from "./_components/fullpage-loading";
 
 interface Room {
   id: string;
@@ -72,19 +76,27 @@ export default function Home() {
   const [timeControl, setTimeControl] = useState(5);
   const [increment, setIncrement] = useState(2);
   const [isPrivate, setIsPrivate] = useState(false);
+  const { logout, user, isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
 
   const handleCreateRoom = () => {
     // Handle room creation logic here
     onClose();
   };
 
-  const handleLogout = () => {
-    // Handle logout logic here
-  };
-
   const handleSettings = () => {
     // Handle settings logic here
   };
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push("/login");
+    }
+  }, [isAuthenticated, router, isLoading]);
+
+  if (isLoading) {
+    return <FullPageLoading />;
+  }
 
   return (
     <div className='min-h-screen bg-content1 p-8'>
@@ -101,8 +113,8 @@ export default function Home() {
             <DropdownTrigger>
               <User
                 as='button'
-                name='John Doe'
-                description='2000 ELO'
+                name={user?.username}
+                description={`${user?.rating} ELO`}
                 avatarProps={{
                   src: "https://i.pravatar.cc/150?u=a042581f4e29026024d",
                   size: "sm",
@@ -114,7 +126,7 @@ export default function Home() {
               <DropdownItem key='settings' onPress={handleSettings}>
                 <Link href='/settings'>Settings</Link>
               </DropdownItem>
-              <DropdownItem key='logout' className='text-danger' color='danger' onPress={handleLogout}>
+              <DropdownItem key='logout' className='text-danger' color='danger' onPress={() => logout()}>
                 Logout
               </DropdownItem>
             </DropdownMenu>

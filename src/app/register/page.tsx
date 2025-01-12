@@ -1,24 +1,84 @@
 "use client";
 
-import { Card, Input, Button, CardBody, CardHeader } from "@nextui-org/react";
-import { useState } from "react";
+import { Card, Input, Button, CardBody, CardHeader, Form } from "@nextui-org/react";
 import Link from "next/link";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useAuth } from "@/providers/AuthProvider";
+import { useGoogleLogin } from "@react-oauth/google";
+import toast from "react-hot-toast";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import FullPageLoading from "../_components/fullpage-loading";
 
-export default function Register() {
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+export const registerSchema = z
+  .object({
+    username: z
+      .string()
+      .min(3, "Username must be at least 3 characters")
+      .max(20, "Username cannot exceed 20 characters"),
+    email: z.string().email("Invalid email address"),
+    password: z.string().min(6, "Password must be at least 6 characters"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
 
-  const handleRegister = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password !== confirmPassword) {
-      alert("Passwords do not match!");
-      return;
+export type RegisterInput = z.infer<typeof registerSchema>;
+
+export default function RegisterPage() {
+  const { register: registerUser, googleLoginMutation, isAuthenticated, isLoading } = useAuth();
+  const googleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      googleLoginMutation.mutate(
+        {
+          token: tokenResponse.access_token,
+        },
+        {
+          onError: (error) => {
+            toast.error(error.message);
+          },
+        }
+      );
+    },
+  });
+  const router = useRouter();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    setError,
+  } = useForm<RegisterInput>({
+    resolver: zodResolver(registerSchema),
+  });
+
+  const onSubmit = async (data: RegisterInput) => {
+    try {
+      await registerUser({
+        username: data.username,
+        email: data.email,
+        password: data.password,
+      });
+    } catch (error: unknown) {
+      setError("root", {
+        type: "server",
+        message: error instanceof Error ? error.message : "An error occurred during registration",
+      });
     }
-    // TODO: Implement register logic
-    console.log("Register attempt with:", { username, email, password });
   };
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      router.push("/");
+    }
+  }, [isAuthenticated, router, isLoading]);
+
+  if (isLoading) {
+    return <FullPageLoading />;
+  }
 
   return (
     <div className='flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-100 to-white p-4'>
@@ -28,52 +88,60 @@ export default function Register() {
           <p className='text-sm text-gray-500'>Please fill in your details to register</p>
         </CardHeader>
         <CardBody>
-          <form onSubmit={handleRegister} className='flex flex-col gap-4'>
+          <Form onSubmit={handleSubmit(onSubmit)} className='flex flex-col gap-4'>
             <Input
+              {...register("username")}
               type='text'
               label='Username'
               placeholder='Choose a username'
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
+              isInvalid={!!errors.username}
+              errorMessage={errors.username?.message}
             />
             <Input
+              {...register("email")}
               type='email'
               label='Email'
               placeholder='Enter your email'
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
+              isInvalid={!!errors.email}
+              errorMessage={errors.email?.message}
             />
             <Input
+              {...register("password")}
               type='password'
               label='Password'
-              placeholder='Create a password'
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
+              placeholder='Choose a password'
+              isInvalid={!!errors.password}
+              errorMessage={errors.password?.message}
             />
             <Input
+              {...register("confirmPassword")}
               type='password'
               label='Confirm Password'
               placeholder='Confirm your password'
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
+              isInvalid={!!errors.confirmPassword}
+              errorMessage={errors.confirmPassword?.message}
             />
-            <Button type='submit' color='primary' className='mt-2'>
+            {errors.root && <div className='pl-2 text-sm text-red-500 rounded-medium'>{errors.root.message}</div>}
+            <Button type='submit' color='primary' className='mt-2 w-full' isLoading={isSubmitting}>
               Create Account
             </Button>
-            <Button type='submit' color='default' variant='bordered' className='mt-2'>
-              Sign up with Google
+            <Button
+              type='button'
+              color='default'
+              variant='bordered'
+              className='mt-2 w-full'
+              onPress={() => googleLogin()}
+              isLoading={googleLoginMutation.isPending}
+            >
+              Sign In with Google
             </Button>
-            <div className='text-center text-sm text-gray-500'>
+            <div className='text-center text-sm text-gray-500 w-full'>
               Already have an account?{" "}
-              <Link href='/' className='text-blue-500 hover:underline'>
+              <Link href='/login' className='text-blue-500 hover:underline'>
                 Sign In
               </Link>
             </div>
-          </form>
+          </Form>
         </CardBody>
       </Card>
     </div>
