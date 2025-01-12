@@ -1,6 +1,7 @@
 import { QueryProvider } from "@/providers/QueryProvider";
 import "./globals.css";
 import { NextUIProvider } from "@nextui-org/react";
+import { AuthProvider } from "@/providers/AuthProvider";
 
 export const metadata = {
   title: "Next.js",
@@ -12,7 +13,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang='en'>
       <body>
         <QueryProvider>
-          <NextUIProvider>{children}</NextUIProvider>
+          <AuthProvider>
+            <NextUIProvider>{children}</NextUIProvider>
+          </AuthProvider>
         </QueryProvider>
       </body>
     </html>
