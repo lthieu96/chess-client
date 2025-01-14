@@ -22,54 +22,12 @@ import {
 } from "@nextui-org/react";
 import Link from "next/link";
 import { useAuth } from "@/providers/AuthProvider";
-import AuthenticatedApp from "./_components/fullpage-loading";
 import { useRouter } from "next/navigation";
 import FullPageLoading from "./_components/fullpage-loading";
-
-interface Room {
-  id: string;
-  timeControl: number; // minutes
-  increment: number; // seconds
-  isPrivate: boolean;
-  creator: {
-    name: string;
-    elo: number;
-  };
-}
-
-// Mock data for rooms
-const mockRooms: Room[] = [
-  {
-    id: "1",
-    timeControl: 5,
-    increment: 2,
-    isPrivate: false,
-    creator: {
-      name: "Magnus Carlsen",
-      elo: 2847,
-    },
-  },
-  {
-    id: "2",
-    timeControl: 3,
-    increment: 1,
-    isPrivate: false,
-    creator: {
-      name: "Hikaru Nakamura",
-      elo: 2768,
-    },
-  },
-  {
-    id: "3",
-    timeControl: 10,
-    increment: 5,
-    isPrivate: true,
-    creator: {
-      name: "Ding Liren",
-      elo: 2780,
-    },
-  },
-];
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { axiosInstance } from "@/lib/axios-client";
+import { PublishedGame } from "@/types/game";
+import toast from "react-hot-toast";
 
 export default function Home() {
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -79,14 +37,22 @@ export default function Home() {
   const { logout, user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
-  const handleCreateRoom = () => {
-    // Handle room creation logic here
-    onClose();
-  };
+  const { data: rooms, isLoading: isLoadingRooms } = useQuery({
+    queryKey: ["rooms"],
+    queryFn: () => axiosInstance.get<PublishedGame[]>("/games").then((res) => res.data),
+  });
 
-  const handleSettings = () => {
-    // Handle settings logic here
-  };
+  const { mutate: createRoom, isPending: isCreatingRoom } = useMutation({
+    mutationFn: () =>
+      axiosInstance.post("/games", { timeControl: timeControl * 60, increment, isPrivate }).then((res) => res.data),
+    onSuccess: (data) => {
+      onClose();
+      // router.push(`/game/${data.id}`);
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -123,7 +89,7 @@ export default function Home() {
               />
             </DropdownTrigger>
             <DropdownMenu aria-label='User Actions'>
-              <DropdownItem key='settings' onPress={handleSettings}>
+              <DropdownItem key='settings' onPress={() => router.push("/settings")}>
                 <Link href='/settings'>Settings</Link>
               </DropdownItem>
               <DropdownItem key='logout' className='text-danger' color='danger' onPress={() => logout()}>
@@ -133,7 +99,6 @@ export default function Home() {
           </Dropdown>
         </div>
       </div>
-
       {/* Create Room Modal */}
       <Modal isOpen={isOpen} onClose={onClose}>
         <ModalContent>
@@ -164,43 +129,48 @@ export default function Home() {
             <Button color='danger' variant='light' onPress={onClose}>
               Cancel
             </Button>
-            <Button color='primary' onPress={handleCreateRoom}>
+            <Button color='primary' onPress={() => createRoom()} isLoading={isCreatingRoom}>
               Create
             </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
-
       {/* Room List */}
-      <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
-        {mockRooms.map((room) => (
-          <Card key={room.id}>
-            <CardBody>
-              <div className='flex justify-between items-start'>
-                <div>
-                  <h3 className='text-lg font-semibold'>Room #{room.id}</h3>
-                  <p className='text-default-500'>
-                    Time Control: {room.timeControl}+{room.increment}
-                  </p>
-                  {room.isPrivate && <span className='text-warning'>Private Room</span>}
-                </div>
-                <div className='text-right'>
-                  <div className='flex items-center gap-2'>
-                    <Avatar name={room.creator.name} size='sm' />
-                    <div>
-                      <p className='font-medium'>{room.creator.name}</p>
-                      <p className='text-default-500'>ELO: {room.creator.elo}</p>
-                    </div>
+      {isLoadingRooms && <FullPageLoading className='w-full h-full' />}
+      {!isLoadingRooms && rooms?.length === 0 && <p>No rooms available</p>}
+      {!isLoadingRooms && (
+        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
+          {rooms?.map((room) => (
+            <Card key={room.id}>
+              <CardBody>
+                <div className='flex justify-between items-start'>
+                  <div>
+                    <h3 className='text-lg font-semibold'>Room #{room.id}</h3>
+                    <p className='text-default-500'>
+                      Time Control: {room.timeControl / 60}+{room.increment}
+                    </p>
+                    {room.isPrivate && <span className='text-warning'>Private Room</span>}
                   </div>
-                  <Button color='primary' className='mt-2' size='sm' fullWidth>
-                    Join Room
-                  </Button>
+                  <div className='text-right'>
+                    <div className='flex items-center gap-2'>
+                      <Avatar name={room.creator.username} size='sm' />
+                      <div>
+                        <p className='font-medium'>{room.creator.username}</p>
+                        <p className='text-default-500'>ELO: {room.creator.rating}</p>
+                      </div>
+                    </div>
+                    <Link href={`/game/${room.id}`}>
+                      <Button color='primary' className='mt-2' size='sm' fullWidth>
+                        Join Room
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
-              </div>
-            </CardBody>
-          </Card>
-        ))}
-      </div>
+              </CardBody>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

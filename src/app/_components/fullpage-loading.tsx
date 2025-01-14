@@ -1,8 +1,10 @@
-import { Spinner } from "@nextui-org/react";
+import { cn, Spinner } from "@nextui-org/react";
 
-export default function FullPageLoading() {
+type Props = React.HTMLAttributes<HTMLDivElement>;
+
+export default function FullPageLoading({ className, ...props }: Props) {
   return (
-    <div className='flex items-center justify-center h-screen'>
+    <div className={cn("flex items-center justify-center h-screen", className)} {...props}>
       <Spinner size='lg' />
     </div>
   );
