@@ -47,7 +47,7 @@ export default function Home() {
       axiosInstance.post("/games", { timeControl: timeControl * 60, increment, isPrivate }).then((res) => res.data),
     onSuccess: (data) => {
       onClose();
-      // router.push(`/game/${data.id}`);
+      router.push(`/game/${data.id}`);
     },
     onError: (error) => {
       toast.error(error.message);

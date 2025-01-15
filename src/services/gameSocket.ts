@@ -17,31 +17,45 @@ export class GameSocket {
     return GameSocket.instance;
   }
 
-  connect(token: string) {
-    if (this.socket?.connected) return;
+  connect(token: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (this.socket?.connected) {
+        console.log("Socket already connected, reusing connection");
+        resolve();
+        return;
+      }
 
-    this.socket = io(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/games`, {
-      auth: { token },
-      withCredentials: false,
-      transports: ["websocket", "polling"],
+      console.log("Creating new socket connection...");
+      this.socket = io(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/games`, {
+        auth: { token },
+        withCredentials: false,
+        transports: ["websocket", "polling"],
+        reconnection: true,
+      });
+
+      this.socket.on("connect", () => {
+        console.log("Connected to game server, socket id:", this.socket?.id);
+        resolve();
+      });
+
+      this.socket.on("connect_error", (error) => {
+        console.error("Socket connection error:", error);
+        reject(error);
+      });
+
+      this.setupListeners();
     });
-
-    this.setupListeners();
   }
 
   private setupListeners() {
     if (!this.socket) return;
 
-    this.socket.on("connect", () => {
-      console.log("Connected to game server");
-    });
-
     this.socket.on("error", (error: string) => {
       console.error("Socket error:", error);
     });
 
-    this.socket.on("disconnect", () => {
-      console.log("Disconnected from game server");
+    this.socket.on("disconnect", (reason) => {
+      console.log("Disconnected from game server, reason:", reason);
     });
   }
 
@@ -53,9 +67,21 @@ export class GameSocket {
         return;
       }
 
+      if (!this.socket.connected) {
+        console.error("Socket connection status:", {
+          socket: !!this.socket,
+          connected: this.socket?.connected,
+          id: this.socket?.id,
+        });
+        reject(new Error("Socket not connected"));
+        return;
+      }
+
+      console.log("Emitting joinGame event with gameId:", gameId);
       this.gameId = gameId;
+
       this.socket.emit("joinGame", { gameId: parseInt(gameId, 10) }, (response: { error?: string; data?: Game }) => {
-        console.log(response);
+        console.log("Received joinGame response:", response);
 
         if (response.error) {
           reject(new Error(response.error));
@@ -161,14 +187,12 @@ export class GameSocket {
   // Initialize game connection
   public async initGame(gameId: string): Promise<Game> {
     try {
-      const token = localStorage.getItem("accessToken");
-      if (!token) {
-        throw new Error("No authentication token found");
+      if (!this.socket?.connected) {
+        throw new Error("Socket not connected. Please connect first.");
       }
 
-      this.connect(token);
+      console.log("Joining game...");
       const game = await this.joinGame(gameId);
-      console.log(game);
       return game;
     } catch (error) {
       console.error("Failed to initialize game:", error);

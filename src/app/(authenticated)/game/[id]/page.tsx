@@ -35,7 +35,6 @@ export default function Game() {
   });
 
   const [isPlayingBlack, setIsPlayingBlack] = useState(false);
-  const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [showGameEndModal, setShowGameEndModal] = useState(false);
   const [gameResult, setGameResult] = useState<string>("");
 
@@ -52,38 +51,45 @@ export default function Game() {
   }, [gameState]);
 
   useEffect(() => {
-    const setupGame = async () => {
-      try {
-        const game = await gameSocket.initGame(params.id as string);
-        setGameState(game);
-      } catch (error) {
-        console.error("Failed to setup game:", error);
-      }
-    };
+    const token = localStorage.getItem("accessToken");
+    if (!token) return;
 
-    gameSocket.onGameState((gameState) => {
-      setGame(new Chess(gameState.fen));
-      setGameState(gameState);
-      console.log(gameState);
-      const history = game.history();
-      setMoveHistory(history);
-    });
+    // Connect socket first
+    gameSocket
+      .connect(token)
+      .then(() => {
+        console.log("Socket connected, setting up game events...");
 
-    gameSocket.onGameOver((data) => {
-      setGameResult(data.result);
-      setShowGameEndModal(true);
-    });
+        // Setup event listeners
+        gameSocket.onGameState((gameState) => {
+          console.log("Received game state:", gameState);
+          setGameState(gameState);
+        });
 
-    gameSocket.onTimeUpdate((data) => {});
+        gameSocket.onGameOver((data) => {
+          setGameResult(data.result);
+          setShowGameEndModal(true);
+        });
 
-    gameSocket.onDrawOffered(() => {});
+        gameSocket.onTimeUpdate((data) => {});
 
-    setupGame();
+        gameSocket.onDrawOffered(() => {});
+
+        // Then initialize game
+        if (params.id) {
+          gameSocket.initGame(params.id as string).catch((error) => {
+            console.error("Failed to initialize game:", error);
+          });
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to connect socket:", error);
+      });
 
     return () => {
       gameSocket.disconnect();
     };
-  }, [params.id]);
+  }, [params.id, setGameState]);
 
   const onDrop = (sourceSquare: Square, targetSquare: Square) => {
     game.move({
@@ -209,11 +215,11 @@ export default function Game() {
             <CardBody>
               <h3 className='text-lg font-semibold mb-2'>Move History</h3>
               <div className='h-[400px] overflow-y-auto'>
-                {moveHistory.map((move, index) => (
+                {/* {moveHistory.map((move, index) => (
                   <div key={index} className='py-1 px-2 hover:bg-gray-100 dark:hover:bg-gray-800'>
                     {Math.floor(index / 2) + 1}. {index % 2 === 0 ? move : `... ${move}`}
                   </div>
-                ))}
+                ))} */}
               </div>
             </CardBody>
           </Card>
