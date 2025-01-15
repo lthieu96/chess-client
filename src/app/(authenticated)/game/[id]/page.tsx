@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Chess, Square } from "chess.js";
 import { Chessboard } from "react-chessboard";
 import {
@@ -25,10 +25,14 @@ import { useAuth } from "@/providers/AuthProvider";
 
 export default function Game() {
   const params = useParams();
-  const [game, setGame] = useState(new Chess());
+  const game = useMemo(() => new Chess(), []);
   const { gameState, setGameState } = useGameStore();
   const { user } = useAuth();
-  const { data: players, isLoading: isLoadingPlayers } = useQuery({
+  const {
+    data: players,
+    isLoading: isLoadingPlayers,
+    refetch: refetchPlayers,
+  } = useQuery({
     queryKey: ["game", params.id],
     queryFn: () => axiosInstance.get<Players>(`/games/${params.id}/players`).then((res) => res.data),
     enabled: !!params.id,
@@ -45,12 +49,6 @@ export default function Game() {
   }, [players, user]);
 
   useEffect(() => {
-    if (gameState) {
-      setGame(new Chess(gameState.fen));
-    }
-  }, [gameState]);
-
-  useEffect(() => {
     const token = localStorage.getItem("accessToken");
     if (!token) return;
 
@@ -63,6 +61,8 @@ export default function Game() {
         // Setup event listeners
         gameSocket.onGameState((gameState) => {
           console.log("Received game state:", gameState);
+          refetchPlayers();
+          if (gameState.fen !== game.fen()) game.load(gameState.fen);
           setGameState(gameState);
         });
 
@@ -89,16 +89,15 @@ export default function Game() {
     return () => {
       gameSocket.disconnect();
     };
-  }, [params.id, setGameState]);
+  }, [params.id, setGameState, game, refetchPlayers]);
 
   const onDrop = (sourceSquare: Square, targetSquare: Square) => {
-    game.move({
+    const move = game.move({
       from: sourceSquare,
       to: targetSquare,
       promotion: "q",
     });
-    const move = game.history()[game.history().length - 1];
-    gameSocket.makeMove(move);
+    gameSocket.makeMove(move.san);
     return true;
   };
 
@@ -132,6 +131,8 @@ export default function Game() {
   if (!players) {
     return <div>Players not found</div>;
   }
+
+  console.log("Current game state:", game.fen());
 
   return (
     <div className='container mx-auto p-4 max-w-5xl'>
