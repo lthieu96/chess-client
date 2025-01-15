@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { devtools } from "zustand/middleware";
 import { Game } from "@/types/game";
 
 interface GameState {
@@ -7,8 +8,13 @@ interface GameState {
   reset: () => void;
 }
 
-export const useGameStore = create<GameState>((set) => ({
-  gameState: null,
-  setGameState: (gameState) => set({ gameState }),
-  reset: () => set({ gameState: null }),
-}));
+export const useGameStore = create<GameState>()(
+  devtools(
+    (set) => ({
+      gameState: null,
+      setGameState: (gameState) => set({ gameState }),
+      reset: () => set({ gameState: null }),
+    }),
+    { name: "Game Store" }
+  )
+);

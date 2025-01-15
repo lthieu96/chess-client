@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { Chess } from "chess.js";
+import { useState, useEffect } from "react";
+import { Chess, Square } from "chess.js";
 import { Chessboard } from "react-chessboard";
 import {
   Card,
@@ -41,31 +41,30 @@ export default function Game() {
 
   useEffect(() => {
     if (players && user) {
-      setIsPlayingBlack(players.blackPlayer?.id === user.id);
+      setIsPlayingBlack(players.blackPlayer?.id == user.id);
     }
   }, [players, user]);
 
   useEffect(() => {
-    const initGame = async () => {
-      try {
-        const token = localStorage.getItem("accessToken");
-        if (!token) {
-          console.error("No authentication token found");
-          return;
-        }
+    if (gameState) {
+      setGame(new Chess(gameState.fen));
+    }
+  }, [gameState]);
 
-        gameSocket.connect(token);
-        const newGameState = await gameSocket.joinGame(params.id as string);
-        setGame(new Chess(newGameState.fen));
-        setGameState(newGameState);
+  useEffect(() => {
+    const setupGame = async () => {
+      try {
+        const game = await gameSocket.initGame(params.id as string);
+        setGameState(game);
       } catch (error) {
-        console.error("Failed to initialize game:", error);
+        console.error("Failed to setup game:", error);
       }
     };
 
     gameSocket.onGameState((gameState) => {
       setGame(new Chess(gameState.fen));
       setGameState(gameState);
+      console.log(gameState);
       const history = game.history();
       setMoveHistory(history);
     });
@@ -75,30 +74,26 @@ export default function Game() {
       setShowGameEndModal(true);
     });
 
-    gameSocket.onGameOver((data) => {
-      console.log("Game Over:", data);
-    });
-
     gameSocket.onTimeUpdate((data) => {});
 
     gameSocket.onDrawOffered(() => {});
 
-    initGame();
+    setupGame();
 
     return () => {
       gameSocket.disconnect();
     };
   }, [params.id]);
 
-  const onDrop = async (sourceSquare: string, targetSquare: string) => {
-    try {
-      const move = `${sourceSquare}${targetSquare}`;
-      await gameSocket.makeMove(move);
-      return true;
-    } catch (error) {
-      console.error("Error making move:", error);
-      return false;
-    }
+  const onDrop = (sourceSquare: Square, targetSquare: Square) => {
+    game.move({
+      from: sourceSquare,
+      to: targetSquare,
+      promotion: "q",
+    });
+    const move = game.history()[game.history().length - 1];
+    gameSocket.makeMove(move);
+    return true;
   };
 
   const handleResign = async () => {
@@ -133,40 +128,60 @@ export default function Game() {
   }
 
   return (
-    <div className='container mx-auto p-4'>
+    <div className='container mx-auto p-4 max-w-5xl'>
       <div className='grid grid-cols-1 lg:grid-cols-3 gap-4'>
         <div className='lg:col-span-2'>
           <Card>
             <CardBody>
-              {/* Player info - Black */}
+              {/* Top player info */}
               <div className='flex items-center justify-between mb-4'>
                 <div className='flex items-center gap-2'>
-                  <Avatar name={players.blackPlayer?.username || "Waiting..."} />
-                  <span>{players.blackPlayer?.username || "Waiting for player..."}</span>
+                  <Avatar
+                    name={
+                      isPlayingBlack ? players.whitePlayer?.username : players.blackPlayer?.username || "Waiting..."
+                    }
+                  />
+                  <span>
+                    {isPlayingBlack
+                      ? players.whitePlayer?.username
+                      : players.blackPlayer?.username || "Waiting for player..."}
+                  </span>
                 </div>
-                <div className='text-2xl font-mono'>{formatTime(gameState?.blackTimeRemaining)}</div>
+                <div className='text-2xl font-mono'>
+                  {formatTime(isPlayingBlack ? gameState?.whiteTimeRemaining : gameState?.blackTimeRemaining)}
+                </div>
               </div>
 
               {/* Chessboard */}
               <div className='aspect-square'>
                 <Chessboard
-                  position={game.fen()}
+                  position={game?.fen()}
                   onPieceDrop={onDrop}
                   boardOrientation={isPlayingBlack ? "black" : "white"}
                 />
               </div>
 
-              {/* Player info - White */}
+              {/* Bottom player info */}
               <div className='flex items-center justify-between mt-4'>
                 <div className='flex items-center gap-2'>
-                  <Avatar name={players.whitePlayer?.username || "Waiting..."} />
-                  <span>{players.whitePlayer?.username || "Waiting for player..."}</span>
+                  <Avatar
+                    name={
+                      isPlayingBlack ? players.blackPlayer?.username : players.whitePlayer?.username || "Waiting..."
+                    }
+                  />
+                  <span>
+                    {isPlayingBlack
+                      ? players.blackPlayer?.username
+                      : players.whitePlayer?.username || "Waiting for player..."}
+                  </span>
                 </div>
-                <div className='text-2xl font-mono'>{formatTime(gameState?.whiteTimeRemaining)}</div>
+                <div className='text-2xl font-mono'>
+                  {formatTime(isPlayingBlack ? gameState?.blackTimeRemaining : gameState?.whiteTimeRemaining)}
+                </div>
               </div>
 
               {/* Game controls */}
-              <div className='flex gap-2 mt-4'>
+              <div className='flex gap-2 mt-4 justify-end'>
                 <Button
                   color='danger'
                   variant='flat'

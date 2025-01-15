@@ -54,11 +54,12 @@ export class GameSocket {
       }
 
       this.gameId = gameId;
-      this.socket.emit("joinGame", { gameId }, (response: { error?: string; data?: Game }) => {
+      this.socket.emit("joinGame", { gameId: parseInt(gameId, 10) }, (response: { error?: string; data?: Game }) => {
+        console.log(response);
+
         if (response.error) {
           reject(new Error(response.error));
         } else if (response.data) {
-          console.log(response);
           resolve(response.data);
         } else {
           reject(new Error("Invalid response from server"));
@@ -157,6 +158,24 @@ export class GameSocket {
     });
   }
 
+  // Initialize game connection
+  public async initGame(gameId: string): Promise<Game> {
+    try {
+      const token = localStorage.getItem("accessToken");
+      if (!token) {
+        throw new Error("No authentication token found");
+      }
+
+      this.connect(token);
+      const game = await this.joinGame(gameId);
+      console.log(game);
+      return game;
+    } catch (error) {
+      console.error("Failed to initialize game:", error);
+      throw error;
+    }
+  }
+
   // Add event listeners
   public onGameState(callback: (gameState: any) => void) {
     this.socket?.on("gameState", callback);
@@ -184,7 +203,9 @@ export class GameSocket {
 
   // Cleanup
   public disconnect() {
-    this.socket?.disconnect();
+    if (this.socket?.connected) {
+      this.socket.close();
+    }
     this.socket = null;
     this.gameId = null;
   }
