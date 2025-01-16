@@ -22,6 +22,7 @@ import { useParams, useRouter } from "next/navigation";
 import { axiosInstance } from "@/lib/axios-client";
 import { useGameStore } from "@/stores/gameStore";
 import { useAuth } from "@/providers/AuthProvider";
+import toast from "react-hot-toast";
 
 export default function Game() {
   const params = useParams();
@@ -44,6 +45,8 @@ export default function Game() {
   const [whiteTime, setWhiteTime] = useState<number | null>(null);
   const [blackTime, setBlackTime] = useState<number | null>(null);
   const [moved, setMoved] = useState(false);
+  const [showDrawOfferModal, setShowDrawOfferModal] = useState(false);
+  const [isDrawOffered, setIsDrawOffered] = useState(false);
 
   useEffect(() => {
     if (players && user) {
@@ -85,7 +88,18 @@ export default function Game() {
 
         gameSocket.onTimeUpdate((data) => {});
 
-        gameSocket.onDrawOffered(() => {});
+        gameSocket.onDrawOffered((data) => {
+          if (data.offeredBy !== user?.id) {
+            setShowDrawOfferModal(true);
+            setIsDrawOffered(true);
+          }
+        });
+
+        gameSocket.onDrawDeclined((data) => {
+          setIsDrawOffered(false);
+          setShowDrawOfferModal(false);
+          toast.error("Draw offer declined");
+        });
 
         // Then initialize game
         if (params.id) {
@@ -157,8 +171,25 @@ export default function Game() {
   const handleDrawOffer = async () => {
     try {
       await gameSocket.offerDraw();
+      setIsDrawOffered(true);
+      toast.success("Draw offered to opponent");
     } catch (error) {
       console.error("Error offering draw:", error);
+      toast.error("Failed to offer draw");
+    }
+  };
+
+  const handleDrawResponse = async (accept: boolean) => {
+    try {
+      await gameSocket.respondToDraw(accept);
+      setShowDrawOfferModal(false);
+      setIsDrawOffered(false);
+      if (!accept) {
+        toast.success("Draw offer declined");
+      }
+    } catch (error) {
+      console.error("Error responding to draw:", error);
+      toast.error("Failed to respond to draw offer");
     }
   };
 
@@ -276,8 +307,8 @@ export default function Game() {
             <div className='text-center'>
               <p className='text-xl font-semibold mb-2'>
                 {gameState?.isDraw && "It's a Draw!"}
-                {gameState?.winner == user?.id && "You Won!"}
-                {gameState?.winner != user?.id && "You Lost!"}
+                {!gameState?.isDraw && gameState?.winner == user?.id && "You Won!"}
+                {!gameState?.isDraw && gameState?.winner != user?.id && "You Lost!"}
               </p>
             </div>
           </ModalBody>
@@ -289,6 +320,24 @@ export default function Game() {
               }}
             >
               Back to Home
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Draw Offer Modal */}
+      <Modal isOpen={showDrawOfferModal} onClose={() => setShowDrawOfferModal(false)}>
+        <ModalContent>
+          <ModalHeader className='text-center'>Draw Offer</ModalHeader>
+          <ModalBody>
+            <p className='text-center'>Your opponent has offered a draw. Do you accept?</p>
+          </ModalBody>
+          <ModalFooter>
+            <Button color='danger' variant='light' onPress={() => handleDrawResponse(false)}>
+              Decline
+            </Button>
+            <Button color='primary' onPress={() => handleDrawResponse(true)}>
+              Accept
             </Button>
           </ModalFooter>
         </ModalContent>
