@@ -41,12 +41,22 @@ export default function Game() {
 
   const [isPlayingBlack, setIsPlayingBlack] = useState(false);
   const [showGameEndModal, setShowGameEndModal] = useState(false);
+  const [whiteTime, setWhiteTime] = useState<number | null>(null);
+  const [blackTime, setBlackTime] = useState<number | null>(null);
+  const [moved, setMoved] = useState(false);
 
   useEffect(() => {
     if (players && user) {
       setIsPlayingBlack(players.blackPlayer?.id == user.id);
     }
   }, [players, user]);
+
+  useEffect(() => {
+    if (gameState) {
+      setWhiteTime(gameState.whiteTimeRemaining);
+      setBlackTime(gameState.blackTimeRemaining);
+    }
+  }, [gameState]);
 
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
@@ -64,6 +74,9 @@ export default function Game() {
           refetchPlayers();
           if (gameState.fen !== game.fen()) game.load(gameState.fen);
           setGameState(gameState);
+          setWhiteTime(gameState.whiteTimeRemaining);
+          setBlackTime(gameState.blackTimeRemaining);
+          setMoved(gameState.moves.length > 0);
         });
 
         gameSocket.onGameOver(() => {
@@ -90,7 +103,40 @@ export default function Game() {
     };
   }, [params.id, setGameState, game, refetchPlayers]);
 
+  useEffect(() => {
+    if (!gameState || gameState.status !== "active" || !moved) return;
+
+    const interval = setInterval(() => {
+      if (gameState.turn === "w") {
+        setWhiteTime((prev) => {
+          if (prev !== null) {
+            const newTime = Math.max(0, prev - 1);
+            if (newTime === 0) gameSocket.checkTime();
+            return newTime;
+          }
+          return null;
+        });
+      } else {
+        setBlackTime((prev) => {
+          if (prev !== null) {
+            const newTime = Math.max(0, prev - 1);
+            if (newTime === 0) gameSocket.checkTime();
+            return newTime;
+          }
+          return null;
+        });
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [gameState?.turn, gameState?.status, moved]);
+
   const onDrop = (sourceSquare: Square, targetSquare: Square) => {
+    console.log(game.turn(), gameState?.turn);
+    if (gameState?.turn !== game.turn()) {
+      console.log("Not your turn");
+      return false;
+    }
     const move = game.move({
       from: sourceSquare,
       to: targetSquare,
@@ -116,11 +162,12 @@ export default function Game() {
     }
   };
 
-  const formatTime = (seconds: number | null) => {
-    if (!seconds) return "--:--";
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = Math.floor(seconds % 60);
-    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+  const formatTime = (ms: number | null) => {
+    if (ms === null) return "--:--";
+    const totalSeconds = Math.floor(ms);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   };
 
   if (isLoadingPlayers) {
@@ -131,12 +178,10 @@ export default function Game() {
     return <div>Players not found</div>;
   }
 
-  console.log("Current game state:", game.fen());
-
   return (
-    <div className='container mx-auto p-4 max-w-5xl'>
+    <div className='container mx-auto p-4 max-w-5xl '>
       <div className='grid grid-cols-1 lg:grid-cols-3 gap-4'>
-        <div className='lg:col-span-2'>
+        <div className='lg:col-span-2 flex justify-center lg:block'>
           <Card>
             <CardBody>
               {/* Top player info */}
@@ -153,14 +198,13 @@ export default function Game() {
                       : players.blackPlayer?.username || "Waiting for player..."}
                   </span>
                 </div>
-                <div className='text-2xl font-mono'>
-                  {formatTime(isPlayingBlack ? gameState?.whiteTimeRemaining : gameState?.blackTimeRemaining)}
-                </div>
+                <div className='text-2xl font-mono'>{formatTime(isPlayingBlack ? whiteTime : blackTime)}</div>
               </div>
 
               {/* Chessboard */}
-              <div className='aspect-square'>
+              <div className='md:aspect-square'>
                 <Chessboard
+                  boardWidth={600}
                   position={game?.fen()}
                   onPieceDrop={onDrop}
                   boardOrientation={isPlayingBlack ? "black" : "white"}
@@ -181,9 +225,7 @@ export default function Game() {
                       : players.whitePlayer?.username || "Waiting for player..."}
                   </span>
                 </div>
-                <div className='text-2xl font-mono'>
-                  {formatTime(isPlayingBlack ? gameState?.blackTimeRemaining : gameState?.whiteTimeRemaining)}
-                </div>
+                <div className='text-2xl font-mono'>{formatTime(isPlayingBlack ? blackTime : whiteTime)}</div>
               </div>
 
               {/* Game controls */}
@@ -192,7 +234,7 @@ export default function Game() {
                   color='danger'
                   variant='flat'
                   onPress={handleResign}
-                  disabled={!gameState || gameState.status !== "playing"}
+                  isDisabled={!gameState || gameState.status !== "active"}
                 >
                   Resign
                 </Button>
@@ -200,7 +242,7 @@ export default function Game() {
                   color='primary'
                   variant='flat'
                   onPress={handleDrawOffer}
-                  disabled={!gameState || gameState.status !== "playing"}
+                  isDisabled={!gameState || gameState.status !== "active"}
                 >
                   Offer Draw
                 </Button>
@@ -215,11 +257,11 @@ export default function Game() {
             <CardBody>
               <h3 className='text-lg font-semibold mb-2'>Move History</h3>
               <div className='h-[400px] overflow-y-auto'>
-                {/* {moveHistory.map((move, index) => (
+                {gameState?.moves.split(",").map((move, index) => (
                   <div key={index} className='py-1 px-2 hover:bg-gray-100 dark:hover:bg-gray-800'>
                     {Math.floor(index / 2) + 1}. {index % 2 === 0 ? move : `... ${move}`}
                   </div>
-                ))} */}
+                ))}
               </div>
             </CardBody>
           </Card>
@@ -234,13 +276,8 @@ export default function Game() {
             <div className='text-center'>
               <p className='text-xl font-semibold mb-2'>
                 {gameState?.isDraw && "It's a Draw!"}
-                {gameState?.winner === user?.id && "You Won!"}
-                {gameState?.winner !== user?.id && "You Lost!"}
-              </p>
-              <p className='text-gray-600 dark:text-gray-400'>
-                {gameState?.isDraw && "Both players played excellently!"}
-                {gameState?.winner === user?.id && "White player wins the game"}
-                {gameState?.winner !== user?.id && "Black player wins the game"}
+                {gameState?.winner == user?.id && "You Won!"}
+                {gameState?.winner != user?.id && "You Lost!"}
               </p>
             </div>
           </ModalBody>

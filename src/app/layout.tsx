@@ -17,8 +17,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <QueryProvider>
           <AuthProvider>
             <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}>
-              <NextUIProvider>{children}</NextUIProvider>
-              <Toaster />
+              <NextUIProvider>
+                {children}
+                <Toaster />
+              </NextUIProvider>
             </GoogleOAuthProvider>
           </AuthProvider>
         </QueryProvider>

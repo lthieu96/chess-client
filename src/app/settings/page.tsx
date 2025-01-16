@@ -14,6 +14,8 @@ import {
   Tab,
   Tabs,
 } from "@nextui-org/react";
+import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 
 const boardThemes = [
   { label: "Classic", value: "classic" },
@@ -55,12 +57,19 @@ export default function Settings() {
 
   return (
     <div className='min-h-screen bg-content1 p-8'>
-      <h1 className='text-3xl font-bold mb-8'>Settings</h1>
+      <div className='flex justify-between items-center mb-8'>
+        <h1 className='text-3xl font-bold'>Settings</h1>
+        <Link href='/'>
+          <Button color='default' size='sm'>
+            <ChevronLeft />
+          </Button>
+        </Link>
+      </div>
 
       <Tabs aria-label='Settings tabs'>
         <Tab key='profile' title='Profile Settings'>
           <Card className='max-w-xl'>
-            <CardHeader>
+            <CardHeader className='flex justify-between'>
               <h2 className='text-xl font-semibold'>Profile Settings</h2>
             </CardHeader>
             <CardBody className='space-y-6'>

@@ -1,6 +1,6 @@
 import { User } from "./user";
 
-export type GameStatus = "waiting" | "playing" | "completed";
+export type GameStatus = "waiting" | "active" | "completed";
 
 export interface Game {
   id: number;

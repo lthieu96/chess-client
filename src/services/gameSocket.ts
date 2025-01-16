@@ -148,6 +148,24 @@ export class GameSocket {
     });
   }
 
+  // Check time
+  public checkTime(): Promise<any> {
+    return new Promise((resolve, reject) => {
+      if (!this.socket || !this.gameId) {
+        reject(new Error("Socket not initialized or game not joined"));
+        return;
+      }
+
+      this.socket.emit("checkTime", { gameId: this.gameId }, (response: any) => {
+        if (response.error) {
+          reject(response.error);
+        } else {
+          resolve(response.data);
+        }
+      });
+    });
+  }
+
   // Respond to draw offer
   public respondToDraw(accept: boolean): Promise<any> {
     return new Promise((resolve, reject) => {

@@ -37,7 +37,11 @@ export default function Home() {
   const { logout, user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
-  const { data: rooms, isLoading: isLoadingRooms } = useQuery({
+  const {
+    data: rooms,
+    isLoading: isLoadingRooms,
+    refetch,
+  } = useQuery({
     queryKey: ["rooms"],
     queryFn: () => axiosInstance.get<PublishedGame[]>("/games").then((res) => res.data),
   });
@@ -110,7 +114,7 @@ export default function Home() {
                 label='Time Control (minutes)'
                 value={timeControl.toString()}
                 onChange={(e) => setTimeControl(Number(e.target.value))}
-                min={1}
+                min={0.5}
               />
               <Input
                 type='number'
@@ -137,7 +141,14 @@ export default function Home() {
       </Modal>
       {/* Room List */}
       {isLoadingRooms && <FullPageLoading className='w-full h-full' />}
-      {!isLoadingRooms && rooms?.length === 0 && <p>No rooms available</p>}
+      {!isLoadingRooms && rooms?.length === 0 && (
+        <div>
+          No rooms available!{" "}
+          <Button onPress={() => refetch()} variant='light' color='primary'>
+            Refresh
+          </Button>
+        </div>
+      )}
       {!isLoadingRooms && (
         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
           {rooms?.map((room) => (
