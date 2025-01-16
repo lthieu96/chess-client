@@ -20,8 +20,9 @@ import { ChevronLeft } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { updateUsername } from "@/services/user.service";
+import { updateUsername, changePassword } from "@/services/user.service";
 import { usernameSchema } from "@/schemas/user.schema";
+import { changePasswordSchema, type ChangePasswordInput } from "@/schemas/password.schema";
 import { toast } from "react-hot-toast";
 import { useAuth } from "@/providers/AuthProvider";
 
@@ -38,14 +39,22 @@ export default function Settings() {
   const queryClient = useQueryClient();
 
   const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
+    register: registerUsername,
+    handleSubmit: handleUsernameSubmit,
+    formState: { errors: usernameErrors, isSubmitting: isUsernameSubmitting },
   } = useForm({
     resolver: zodResolver(usernameSchema),
     defaultValues: {
       username: "",
     },
+  });
+
+  const {
+    register: registerPassword,
+    handleSubmit: handlePasswordSubmit,
+    formState: { errors: passwordErrors, isSubmitting: isPasswordSubmitting },
+  } = useForm<ChangePasswordInput>({
+    resolver: zodResolver(changePasswordSchema),
   });
 
   const updateUsernameMutation = useMutation({
@@ -59,18 +68,27 @@ export default function Settings() {
     },
   });
 
-  const onSubmit = (data: { username: string }) => {
+  const changePasswordMutation = useMutation({
+    mutationFn: (data: ChangePasswordInput) => changePassword(user?.id as string, data),
+    onSuccess: () => {
+      toast.success("Password updated successfully");
+    },
+    onError: (error) => {
+      toast.error("Failed to update password");
+    },
+  });
+
+  const onUsernameSubmit = (data: { username: string }) => {
     updateUsernameMutation.mutate(data);
+  };
+
+  const onPasswordSubmit = (data: ChangePasswordInput) => {
+    changePasswordMutation.mutate(data);
   };
 
   // Board settings
   const [selectedTheme, setSelectedTheme] = useState("classic");
   const [showCoordinates, setShowCoordinates] = useState(true);
-
-  const handleUpdatePassword = () => {
-    // Handle password update logic
-    console.log("Updating password...");
-  };
 
   const handleUpdateBoardSettings = () => {
     // Handle board settings update logic
@@ -96,15 +114,19 @@ export default function Settings() {
             </CardHeader>
             <CardBody className='space-y-6'>
               <div>
-                <Form onSubmit={handleSubmit(onSubmit)} className='flex flex-col gap-4'>
+                <Form onSubmit={handleUsernameSubmit(onUsernameSubmit)} className='flex flex-col gap-4'>
                   <Input
-                    {...register("username")}
+                    {...registerUsername("username")}
                     label='Username'
                     placeholder='Enter new username'
-                    isInvalid={!!errors.username}
-                    errorMessage={errors.username?.message}
+                    isInvalid={!!usernameErrors.username}
+                    errorMessage={usernameErrors.username?.message}
                   />
-                  <Button color='primary' type='submit' isLoading={isSubmitting || updateUsernameMutation.isPending}>
+                  <Button
+                    color='primary'
+                    type='submit'
+                    isLoading={isUsernameSubmitting || updateUsernameMutation.isPending}
+                  >
                     Update Username
                   </Button>
                 </Form>
@@ -112,13 +134,32 @@ export default function Settings() {
 
               <Divider />
 
-              <div className='space-y-4'>
-                <Input label='Current Password' type='password' placeholder='Enter current password' />
-                <Input label='New Password' type='password' placeholder='Enter new password' />
-                <Input label='Confirm New Password' type='password' placeholder='Confirm new password' />
-                <Button color='primary' onPress={handleUpdatePassword}>
-                  Update Password
-                </Button>
+              <div>
+                <Form onSubmit={handlePasswordSubmit(onPasswordSubmit)} className='flex flex-col gap-4'>
+                  <Input
+                    {...registerPassword("oldPassword")}
+                    type='password'
+                    label='Current Password (Optional)'
+                    placeholder='Enter current password'
+                    isInvalid={!!passwordErrors.oldPassword}
+                    errorMessage={passwordErrors.oldPassword?.message}
+                  />
+                  <Input
+                    {...registerPassword("newPassword")}
+                    type='password'
+                    label='New Password'
+                    placeholder='Enter new password'
+                    isInvalid={!!passwordErrors.newPassword}
+                    errorMessage={passwordErrors.newPassword?.message}
+                  />
+                  <Button
+                    color='primary'
+                    type='submit'
+                    isLoading={isPasswordSubmitting || changePasswordMutation.isPending}
+                  >
+                    Update Password
+                  </Button>
+                </Form>
               </div>
             </CardBody>
           </Card>
