@@ -13,9 +13,17 @@ import {
   Divider,
   Tab,
   Tabs,
+  Form,
 } from "@nextui-org/react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { updateUsername } from "@/services/user.service";
+import { usernameSchema } from "@/schemas/user.schema";
+import { toast } from "react-hot-toast";
+import { useAuth } from "@/providers/AuthProvider";
 
 const boardThemes = [
   { label: "Classic", value: "classic" },
@@ -26,26 +34,40 @@ const boardThemes = [
 ];
 
 export default function Settings() {
-  // Profile settings
-  const [username, setUsername] = useState("");
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    resolver: zodResolver(usernameSchema),
+    defaultValues: {
+      username: "",
+    },
+  });
+
+  const updateUsernameMutation = useMutation({
+    mutationFn: ({ username }: { username: string }) => updateUsername(user?.id as string, username),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user"] });
+      toast.success("Username updated successfully");
+    },
+    onError: (error) => {
+      toast.error("Failed to update username");
+    },
+  });
+
+  const onSubmit = (data: { username: string }) => {
+    updateUsernameMutation.mutate(data);
+  };
 
   // Board settings
   const [selectedTheme, setSelectedTheme] = useState("classic");
   const [showCoordinates, setShowCoordinates] = useState(true);
 
-  const handleUpdateProfile = () => {
-    // Handle profile update logic
-    console.log("Updating profile...");
-  };
-
   const handleUpdatePassword = () => {
-    if (newPassword !== confirmPassword) {
-      // Show error message
-      return;
-    }
     // Handle password update logic
     console.log("Updating password...");
   };
@@ -74,41 +96,26 @@ export default function Settings() {
             </CardHeader>
             <CardBody className='space-y-6'>
               <div>
-                <Input
-                  label='Username'
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder='Enter new username'
-                />
-                <Button color='primary' className='mt-2' onPress={handleUpdateProfile}>
-                  Update Username
-                </Button>
+                <Form onSubmit={handleSubmit(onSubmit)} className='flex flex-col gap-4'>
+                  <Input
+                    {...register("username")}
+                    label='Username'
+                    placeholder='Enter new username'
+                    isInvalid={!!errors.username}
+                    errorMessage={errors.username?.message}
+                  />
+                  <Button color='primary' type='submit' isLoading={isSubmitting || updateUsernameMutation.isPending}>
+                    Update Username
+                  </Button>
+                </Form>
               </div>
 
               <Divider />
 
               <div className='space-y-4'>
-                <Input
-                  label='Current Password'
-                  type='password'
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder='Enter current password'
-                />
-                <Input
-                  label='New Password'
-                  type='password'
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder='Enter new password'
-                />
-                <Input
-                  label='Confirm New Password'
-                  type='password'
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder='Confirm new password'
-                />
+                <Input label='Current Password' type='password' placeholder='Enter current password' />
+                <Input label='New Password' type='password' placeholder='Enter new password' />
+                <Input label='Confirm New Password' type='password' placeholder='Confirm new password' />
                 <Button color='primary' onPress={handleUpdatePassword}>
                   Update Password
                 </Button>
