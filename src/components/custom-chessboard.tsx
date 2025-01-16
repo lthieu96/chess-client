@@ -1,6 +1,7 @@
 import { Chessboard } from "react-chessboard";
 import { Chess, Square } from "chess.js";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getBoardSettings } from "@/services/boardSettings";
 
 interface CustomChessboardProps {
   position: string;
@@ -11,9 +12,27 @@ interface CustomChessboardProps {
   userTurn: "w" | "b";
 }
 
-const customSquareStyles = {
-  light: "#f0d9b5",
-  dark: "#b58863",
+const boardThemes = {
+  classic: {
+    light: "#f0d9b5",
+    dark: "#b58863",
+  },
+  wood: {
+    light: "#E8C99B",
+    dark: "#957355",
+  },
+  blue: {
+    light: "#DEE3E6",
+    dark: "#788A9C",
+  },
+  green: {
+    light: "#FFFFDD",
+    dark: "#86A666",
+  },
+  dark: {
+    light: "#7D8796",
+    dark: "#3C4452",
+  },
 };
 
 const CustomChessboard = ({
@@ -25,6 +44,16 @@ const CustomChessboard = ({
   userTurn,
 }: CustomChessboardProps) => {
   const [moveSquares, setMoveSquares] = useState<{ [key: string]: { backgroundColor: string } }>({});
+  const [boardSettings, setBoardSettings] = useState(getBoardSettings());
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setBoardSettings(getBoardSettings());
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
   // Function to check if a piece can be dragged
   const onPieceDragBegin = (piece: string, sourceSquare: Square) => {
@@ -35,11 +64,11 @@ const CustomChessboard = ({
       const newSquares: { [key: string]: { backgroundColor: string } } = {};
 
       // Highlight source square
-      newSquares[sourceSquare] = { backgroundColor: "rgba(255, 255, 0, 0.4)" };
+      newSquares[sourceSquare] = { backgroundColor: "rgba(128, 128, 128, 0.4)" };
 
       // Highlight possible moves
       moves.forEach((move) => {
-        newSquares[move.to] = { backgroundColor: "rgba(0, 255, 0, 0.6)" };
+        newSquares[move.to] = { backgroundColor: "rgba(128, 128, 128, 0.6)" };
       });
 
       setMoveSquares(newSquares);
@@ -52,25 +81,24 @@ const CustomChessboard = ({
     setMoveSquares({});
   };
 
+  const theme = boardThemes[boardSettings.theme as keyof typeof boardThemes] || boardThemes.classic;
+
   return (
     <Chessboard
       position={position}
       onPieceDrop={onPieceDrop}
       boardOrientation={boardOrientation}
       boardWidth={boardWidth}
-      onPieceDragBegin={onPieceDragBegin}
-      onPieceDragEnd={onPieceDragEnd}
-      customBoardStyle={{
-        borderRadius: "8px",
-        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-      }}
       customDarkSquareStyle={{
-        backgroundColor: customSquareStyles.dark,
+        backgroundColor: theme.dark,
       }}
       customLightSquareStyle={{
-        backgroundColor: customSquareStyles.light,
+        backgroundColor: theme.light,
       }}
       customSquareStyles={moveSquares}
+      onPieceDragBegin={onPieceDragBegin}
+      onPieceDragEnd={onPieceDragEnd}
+      showBoardNotation={boardSettings.showCoordinates}
     />
   );
 };

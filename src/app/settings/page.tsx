@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardBody,
@@ -25,6 +25,7 @@ import { usernameSchema } from "@/schemas/user.schema";
 import { changePasswordSchema, type ChangePasswordInput } from "@/schemas/password.schema";
 import { toast } from "react-hot-toast";
 import { useAuth } from "@/providers/AuthProvider";
+import { getBoardSettings, saveBoardSettings, type BoardSettings } from "@/services/boardSettings";
 
 const boardThemes = [
   { label: "Classic", value: "classic" },
@@ -37,6 +38,7 @@ const boardThemes = [
 export default function Settings() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [boardSettings, setBoardSettings] = useState<BoardSettings>(() => getBoardSettings());
 
   const {
     register: registerUsername,
@@ -87,13 +89,24 @@ export default function Settings() {
   };
 
   // Board settings
-  const [selectedTheme, setSelectedTheme] = useState("classic");
-  const [showCoordinates, setShowCoordinates] = useState(true);
+  const [selectedTheme, setSelectedTheme] = useState(boardSettings.theme);
+  const [showCoordinates, setShowCoordinates] = useState(boardSettings.showCoordinates);
 
   const handleUpdateBoardSettings = () => {
-    // Handle board settings update logic
-    console.log("Updating board settings...");
+    const newSettings: BoardSettings = {
+      theme: selectedTheme,
+      showCoordinates,
+    };
+    saveBoardSettings(newSettings);
+    setBoardSettings(newSettings);
+    toast.success("Board settings saved successfully");
   };
+
+  useEffect(() => {
+    const settings = getBoardSettings();
+    setSelectedTheme(settings.theme);
+    setShowCoordinates(settings.showCoordinates);
+  }, []);
 
   return (
     <div className='min-h-screen bg-content1 p-8'>
@@ -188,10 +201,10 @@ export default function Settings() {
 
               <div className='flex justify-between items-center'>
                 <span>Show Coordinates</span>
-                <Switch checked={showCoordinates} onChange={(e) => setShowCoordinates(e.target.checked)} />
+                <Switch isSelected={showCoordinates} onValueChange={setShowCoordinates} />
               </div>
 
-              <Button color='primary' onPress={handleUpdateBoardSettings}>
+              <Button color='primary' onPress={handleUpdateBoardSettings} className='w-full'>
                 Save Board Settings
               </Button>
             </CardBody>
