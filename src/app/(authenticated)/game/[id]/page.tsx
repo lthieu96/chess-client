@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Chess, Square } from "chess.js";
-import { Chessboard } from "react-chessboard";
 import {
   Card,
   CardBody,
@@ -23,6 +22,7 @@ import { axiosInstance } from "@/lib/axios-client";
 import { useGameStore } from "@/stores/gameStore";
 import { useAuth } from "@/providers/AuthProvider";
 import toast from "react-hot-toast";
+import CustomChessboard from "@/components/custom-chessboard";
 
 export default function Game() {
   const params = useParams();
@@ -146,11 +146,14 @@ export default function Game() {
   }, [gameState?.turn, gameState?.status, moved]);
 
   const onDrop = (sourceSquare: Square, targetSquare: Square) => {
-    console.log(game.turn(), gameState?.turn);
-    if (gameState?.turn !== game.turn()) {
-      console.log("Not your turn");
+    // Check if the piece on sourceSquare belongs to the current player
+    console.log(game.get(sourceSquare));
+    const piece = game.get(sourceSquare);
+    if (!piece || piece.color !== (isPlayingBlack ? "b" : "w")) {
+      console.log("Not your piece");
       return false;
     }
+
     const move = game.move({
       from: sourceSquare,
       to: targetSquare,
@@ -234,11 +237,13 @@ export default function Game() {
 
               {/* Chessboard */}
               <div className='md:aspect-square'>
-                <Chessboard
-                  boardWidth={600}
+                <CustomChessboard
                   position={game?.fen()}
                   onPieceDrop={onDrop}
                   boardOrientation={isPlayingBlack ? "black" : "white"}
+                  boardWidth={600}
+                  game={game}
+                  userTurn={isPlayingBlack ? "b" : "w"}
                 />
               </div>
 
