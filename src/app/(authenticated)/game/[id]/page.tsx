@@ -18,13 +18,14 @@ import { gameSocket } from "@/services/gameSocket";
 import { useQuery } from "@tanstack/react-query";
 import { type Game, Players } from "@/types/game";
 import FullPageLoading from "@/app/_components/fullpage-loading";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { axiosInstance } from "@/lib/axios-client";
 import { useGameStore } from "@/stores/gameStore";
 import { useAuth } from "@/providers/AuthProvider";
 
 export default function Game() {
   const params = useParams();
+  const router = useRouter();
   const game = useMemo(() => new Chess(), []);
   const { gameState, setGameState } = useGameStore();
   const { user } = useAuth();
@@ -40,7 +41,6 @@ export default function Game() {
 
   const [isPlayingBlack, setIsPlayingBlack] = useState(false);
   const [showGameEndModal, setShowGameEndModal] = useState(false);
-  const [gameResult, setGameResult] = useState<string>("");
 
   useEffect(() => {
     if (players && user) {
@@ -66,8 +66,7 @@ export default function Game() {
           setGameState(gameState);
         });
 
-        gameSocket.onGameOver((data) => {
-          setGameResult(data.result);
+        gameSocket.onGameOver(() => {
           setShowGameEndModal(true);
         });
 
@@ -228,15 +227,31 @@ export default function Game() {
       </div>
 
       {/* Game End Modal */}
-      <Modal isOpen={showGameEndModal} onClose={() => setShowGameEndModal(false)}>
+      <Modal isOpen={showGameEndModal} placement='center' onClose={() => setShowGameEndModal(true)} closeButton={null}>
         <ModalContent>
-          <ModalHeader>Game Over</ModalHeader>
+          <ModalHeader className='text-center'>Game Over</ModalHeader>
           <ModalBody>
-            <p>{gameResult}</p>
+            <div className='text-center'>
+              <p className='text-xl font-semibold mb-2'>
+                {gameState?.isDraw && "It's a Draw!"}
+                {gameState?.winner === user?.id && "You Won!"}
+                {gameState?.winner !== user?.id && "You Lost!"}
+              </p>
+              <p className='text-gray-600 dark:text-gray-400'>
+                {gameState?.isDraw && "Both players played excellently!"}
+                {gameState?.winner === user?.id && "White player wins the game"}
+                {gameState?.winner !== user?.id && "Black player wins the game"}
+              </p>
+            </div>
           </ModalBody>
           <ModalFooter>
-            <Button color='primary' onPress={() => setShowGameEndModal(false)}>
-              Close
+            <Button
+              color='primary'
+              onPress={() => {
+                router.push("/");
+              }}
+            >
+              Back to Home
             </Button>
           </ModalFooter>
         </ModalContent>
